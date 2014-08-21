@@ -1,0 +1,153 @@
+{% load staticfiles %}
+
+<!DOCTYPE html>
+<html>
+	<style>
+	svg {
+	  position: relative;
+	}
+
+	path:hover {
+	  fill: brown;
+	  fill-opacity: .7;
+	}
+	
+	</style>
+	<head>
+	    <meta charset="utf-8">
+	    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+	     <title> My FlowMap </title>
+	</head>
+	<body>
+		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0;" />
+		
+		<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+		<script src="http://d3js.org/d3.v3.min.js"></script>
+		<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+		<script>
+			var map = L.map('map').setView([37.8, -96.9], 5);
+				L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png', {
+				maxZoom: 18,
+				attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+					'<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+					'Imagery ? <a href="http://mapbox.com">Mapbox</a>',
+				id: 'examples.map-i86knfo3'
+				}).addTo(map);
+		    
+		    //{% for c in cnty %}
+				//L.marker([{{c.lat}}, {{c.lng}}]).bindPopup('<b>'+ {{c.FIPS}}+'</b>').addTo(map);
+			//{% endfor %}
+			var svg_cnty = d3.select(map.getPanes().overlayPane).append("svg"),
+				svg_flow = d3.select(map.getPanes().overlayPane).append("svg"),
+			    g_cnty = svg_cnty.append("g").attr("class", "leaflet-zoom-hide");
+			    g_flow = svg_flow.append("g").attr("class", "leaflet-zoom-hide");
+			
+			//draw county boundary //continental_cnty_simplified; us-states
+			d3.json("{{ STATIC_URL }}visflow/GeoJSON/continental_cnty_simplified.json", function(collection) {
+			  var transform = d3.geo.transform({point: projectPoint}),
+			      path = d3.geo.path().projection(transform);
+				
+			  var feature = g_cnty.selectAll("path")
+			      .data(collection.features)
+			    .enter().append("path")
+			    .attr("stroke", "#fff")
+			    .attr("fill", "#011")
+			    .attr("fill-opacity", ".05")
+			    .attr("stroke-width", "1.5px");
+			    
+			  map.on("viewreset", reset);
+			  reset();
+			  // Reposition the SVG to cover the features.
+			  function reset() {
+			    var bounds = path.bounds(collection),
+			        topLeft = bounds[0],
+			        bottomRight = bounds[1];
+			        
+			    svg_cnty .attr("width", bottomRight[0] - topLeft[0])
+			        .attr("height", bottomRight[1] - topLeft[1])
+			        .style("left", topLeft[0] + "px")
+			        .style("top", topLeft[1] + "px");
+			
+			    g_cnty.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
+			    feature.attr("d", path);
+			  }
+			
+			  // Use Leaflet to implement a D3 geometric transformation.
+			  function projectPoint(x, y) {
+			    var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+			    this.stream.point(point.x, point.y);
+			  }
+			});
+			
+			/*
+			//read county centroids
+			var cntpts = [];
+			$.getJSON("{{ STATIC_URL }}visflow/GeoJSON/cnty_pts_lnglat.json", function(data) {
+				function projectPoint(x, y) {
+				    var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+				    return([point.x, point.y]);
+				  }
+				for(var i in data){
+					cntpts.push(projectPoint(data[i].lat, data[i].lng));
+				}
+			})
+			*/
+			
+			//draw flows
+			d3.json("{{ STATIC_URL }}visflow/GeoJSON/sig_flowtable_above65_allm.json", function(collection) {
+			  //var projection = d3.geo.mercator({point: projectPoint});
+			  var transform = d3.geo.transform({point: projectPoint}),
+			      path = d3.geo.path().projection(transform);
+			//console.log(path)
+			// build the arrow.
+			svg_flow.append("svg:defs").selectAll("marker")
+			    .data(["end-arrow"])
+			  .enter().append("svg:marker")
+			    .attr("id", String)
+			    .attr("viewBox", "0 -5 10 10")
+			    .attr("refX", 5)
+			    .attr("refY", 0)
+			    .attr("markerWidth", 6)
+			    .attr("markerHeight", 6)
+			    .attr("orient", "auto")
+			    .attr("stroke", "red")
+			    .attr("fill", "red")
+			  .append("svg:path")
+			    .attr("d", "M0,-5L10,0L0,5");
+			    
+			  var feature = g_flow.selectAll("path")
+			      .data(collection.features)
+			    .enter().append("path")
+			    .attr("stroke", "red")
+			    .attr("stroke-width", function(d){return Math.log(d.properties.volume)/Math.LN10})
+			    .attr("fill-opacity", ".6")
+			    .attr("marker-end", "url(#end-arrow)");
+			    
+			  map.on("viewreset", reset);
+			  reset();
+
+			  // Reposition the SVG to cover the features.
+			  function reset() {
+			    var bounds = path.bounds(collection),
+			        topLeft = bounds[0],
+			        bottomRight = bounds[1];
+			        
+			    svg_flow .attr("width", bottomRight[0] - topLeft[0])
+			        .attr("height", bottomRight[1] - topLeft[1])
+			        .style("left", topLeft[0] + "px")
+			        .style("top", topLeft[1] + "px");
+			
+			    g_flow.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
+			    feature.attr("d", path);
+			  }
+			
+			  // Use Leaflet to implement a D3 geometric transformation.
+			  function projectPoint(x, y) {
+			    var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+			    this.stream.point(point.x, point.y);
+			  }
+			  
+			});
+		</script>
+	</body>
+</html>
