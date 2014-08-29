@@ -1,0 +1,219 @@
+{% load staticfiles %}
+
+<!DOCTYPE html>
+<html>
+	<style>
+	svg {
+	  position: relative;
+	}
+
+	path:hover {
+	  fill: brown;
+	  fill-opacity: .2;
+	}
+	
+	</style>
+	<head>
+	    <meta charset="utf-8">
+	    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+	     <title> My FlowMap </title>
+	</head>
+	<body>
+		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0; top:0; left:0" />
+		
+		<script src="{{ STATIC_URL }}visflow/JS/leaflet.js"></script>
+		<script src="{{ STATIC_URL }}visflow/JS/d3.v3.min.js"></script>
+		<script src="{{ STATIC_URL }}visflow/JS/jquery-1.11.0.min.js"></script>
+		<script src="{{ STATIC_URL }}visflow/JS/geostats.min.js"></script>
+		<script>
+			var map = L.map('map').setView([37.8, -96.9], 5);
+				L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png', {
+				maxZoom: 18,
+				attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+					'<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+					'Imagery ? <a href="http://mapbox.com">Mapbox</a>',
+				id: 'examples.map-i86knfo3'
+				}).addTo(map);
+
+			var svg_cnty = d3.select(map.getPanes().overlayPane).append("svg"),
+				svg_flow = d3.select(map.getPanes().overlayPane).append("svg"),
+			    g_cnty = svg_cnty.append("g").attr("class", "leaflet-zoom-hide");
+			    g_flow = svg_flow.append("g").attr("class", "leaflet-zoom-hide");
+			
+			
+			//draw county boundary //continental_cnty_simplified; us-states
+			d3.json("{{ STATIC_URL }}visflow/GeoJSON/continental_cnty_simplified.json", function(collection) {
+			  var transform = d3.geo.transform({point: projectPoint}),
+			      path = d3.geo.path().projection(transform);
+				
+			  var feature = g_cnty.selectAll("path")
+			      .data(collection.features)
+			    .enter().append("path")
+			    .attr("stroke", "#E0E0E0")
+			    .attr("fill", "#011")
+			    .attr("fill-opacity", ".05")
+			    .attr("stroke-width", "1px");
+			    
+			  map.on("viewreset", reset);
+			  reset();
+			  // Reposition the SVG to cover the features.
+			  function reset() {
+			    var bounds = path.bounds(collection),
+			        topLeft = bounds[0],
+			        bottomRight = bounds[1];
+			        
+			    svg_cnty .attr("width", bottomRight[0] - topLeft[0])
+			        .attr("height", bottomRight[1] - topLeft[1])
+			        .style("left", topLeft[0] + "px")
+			        .style("top", topLeft[1] + "px");
+			
+			    g_cnty.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
+			    feature.attr("d", path);
+			  }
+			});
+			
+			// Use Leaflet to implement a D3 geometric transformation.
+			function projectPoint(x, y) {
+			  point = map.latLngToLayerPoint(new L.LatLng(y, x));
+			  return this.stream.point(point.x, point.y);
+			}
+			
+			//draw flows
+			d3.json("{{ STATIC_URL }}visflow/GeoJSON/sig_flowtable_above65_allm.json", function(collection) {
+			  var transform = d3.geo.transform({point: projectPoint}),
+			      path = d3.geo.path().projection(transform);
+			  
+			  var opacity_value = 0.6;
+			  var destcolor = "#FF0000", origincolor = "#FFFF99";
+			  
+			  // build the arrow
+			  svg_flow.append("svg:defs").selectAll("marker")
+			      .data(["end-arrow"])
+			    .enter().append("svg:marker")
+			      .attr("id", String)
+			      .attr("viewBox", "0 0 10 10")
+			      .attr("refX", 10)
+			      .attr("refY", 5)
+			      .attr("markerWidth", 6)
+			      .attr("markerHeight", 6)
+			      .attr("orient", "auto")
+			      .attr("stroke", destcolor)
+			      .attr("fill", destcolor)
+			      .attr("stroke-linejoin", "round")
+			      .attr("stroke-opacity", opacity_value)
+			      .attr("fill-opacity", opacity_value)
+			    .append("svg:path")
+			      .attr("d", "M0,0L10,5L2,5.5");
+			      
+			  function quad(points) {
+				  return d3.range(points.length - 1).map(function(i) {
+				    var a = [points[i - 1], points[i], points[i + 1], points[i + 2]];
+				    a.t = (points[i].t + points[i + 1].t) / 2;
+				    return a;
+				  });
+				}
+			  
+			  // draw linear gradient
+			  var mylinearGradient = [{"id": "lg_toleft", "x1": "0%", "x2": "100%", "y1":"0%", "y2":"0%", 
+			  								"stop": [{"offset": "10%", "color": origincolor}, {"offset": "90%", "color": destcolor}]},
+			  						  {"id": "lg_toright", "x1": "10%", "x2": "100%", "y1":"0%", "y2":"0%",
+			  						  		"stop": [{"offset": "10%", "color": destcolor}, {"offset": "90%", "color": origincolor}]},
+			  						  {"id": "lg_toup", "x1": "0%", "x2": "0%", "y1":"0%", "y2":"100%",
+			  						  		"stop": [{"offset": "10%", "color": destcolor}, {"offset": "90%", "color": origincolor}]},
+			  						  {"id": "lg_tobottom", "x1": "0%", "x2": "0%", "y1":"0%", "y2":"100%",
+			  						  		"stop": [{"offset": "10%", "color": origincolor}, {"offset": "90%", "color": destcolor}]}]
+			  svg_flow.append("svg:defs").selectAll("linearGradient")
+				      .data(mylinearGradient)
+			    	.enter().append("svg:linearGradient")
+			    	.attr("id", function(d) { return d.id; })
+			    	.attr("x1", function(d) { return d.x1; })
+			    	.attr("x2", function(d) { return d.x2; })
+			    	.attr("y1", function(d) { return d.y1; })
+			    	.attr("y2", function(d) { return d.y2; })
+				    .selectAll("stop")
+				      .data(function(d) { return d.stop; })
+				      .enter().append("stop")
+     				  .attr("offset", function(d) { return d.offset; })
+      				  .attr("stop-color", function(d) { return d.color; });
+      				  
+      		  svg_flow.append("svg:defs").selectAll("linearGradient")
+				      .data(["mylinearGradienttoright"])
+			    	.enter().append("svg:linearGradient")
+			    	.attr("id", String)
+				    .selectAll("stop")
+				      .data([
+				        {offset: "5%", color:"#FF6"},
+				        {offset:"95%", color:destcolor}
+				      ])
+				      .enter().append("stop")
+     				  .attr("offset", function(d) { return d.offset; })
+      				  .attr("stop-color", function(d) { return d.color; });
+			  	
+			  var feature = g_flow.selectAll("path")
+			      .data(collection.features)
+			    .enter().append("path")
+			    .attr("stroke", function(d){
+			    			var distx = d.geometry.coordinates[0][0] - d.geometry.coordinates[1][0],
+			    				disty = d.geometry.coordinates[0][1] - d.geometry.coordinates[1][1];
+			    			if (Math.abs(distx) > Math.abs(disty)) 
+			    				{if (distx > 0) return "url(#lg_toright)"; else return "url(#lg_toleft)";}
+			    			else
+			    				{if (disty > 0) return "url(#lg_tobottom)"; else return "url(#lg_toup)";}
+			    			})
+			    .attr("stroke-linejoin", "round")
+			    .attr("fill", "none")
+			    .attr("stroke-opacity", opacity_value)
+			    .attr("stroke-width", function(d){return Math.log(d.properties.volume)/Math.LN10});
+			    //.attr("marker-end", "url(#end-arrow)");
+			  
+			  //var l = feature[0][0].node().getTotalLength();
+			  //console.log(feature[0][0]);
+			  //feature
+			  		//.transition()
+			    	//.duration(5000)
+			    	//.delay(1000)
+			    	//.attr("stroke-opacity", 1.0);
+			  
+			  function determinerelativecontrolpt(x1, y1, x2, y2, n, m){ 
+			  	// n * distance(start_pnt, end_pnt): distance from ctl pnt to start pnt along straight line between start and end points
+			  	// m * distance(start_pnt, end_pnt): distance from ctl pnt to the straight line between start and end points
+			  	return {x: n * (x2- x1) + m * (y2 - y1), y: n * (y2- y1) - m * (x2 - x1)}
+			  }
+			  
+			  var path2 = function(d){ var pt0 = projectionpoint2(d.geometry.coordinates[0][0], d.geometry.coordinates[0][1]);
+			    						var pt1 = projectionpoint2(d.geometry.coordinates[1][0], d.geometry.coordinates[1][1]);
+			    						var distx = pt1.x-pt0.x, disty = pt1.y-pt0.y;
+										var ptctl = determinerelativecontrolpt(pt0.x, pt0.y, pt1.x, pt1.y, 1/6, 1/8),
+											ptct2 = determinerelativecontrolpt(pt0.x, pt0.y, pt1.x, pt1.y, 1/3, 1/8),
+											ptct3 = determinerelativecontrolpt(pt1.x, pt1.y, pt0.x, pt0.y, 1/20, 1/100);
+										return "M" + pt0.x + "," + pt0.y + " c" + ptctl.x + "," + ptctl.y + " " + ptct2.x + "," + ptct2.y
+											+ " " + distx + "," + disty + " l" + ptct3.x + "," + ptct3.y;
+			    						}
+			  
+			  function projectionpoint2(x, y) {
+			  	return map.latLngToLayerPoint(new L.LatLng(y, x));
+		      } 
+			  
+			  map.on("viewreset", reset);
+			  reset();
+				
+			  // Reposition the SVG to cover the features.
+			  function reset() {
+			    var bounds = path.bounds(collection),
+			        topLeft = bounds[0],
+			        bottomRight = bounds[1];
+
+			    svg_flow .attr("width", bottomRight[0] - topLeft[0])
+			        .attr("height", bottomRight[1] - topLeft[1])
+			        .style("left", topLeft[0] + "px")
+			        .style("top", topLeft[1] + "px");
+			
+			    g_flow.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
+			    //feature.attr("d", path);
+			    feature.attr("d", path2);
+			  }
+			});
+			
+		</script>
+	</body>
+</html>

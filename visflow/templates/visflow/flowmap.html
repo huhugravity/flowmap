@@ -9,7 +9,7 @@
 
 	path:hover {
 	  fill: brown;
-	  fill-opacity: .7;
+	  fill-opacity: .2;
 	}
 	
 	</style>
@@ -19,7 +19,7 @@
 	     <title> My FlowMap </title>
 	</head>
 	<body>
-		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0;" />
+		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0; top:0; left:0" />
 		
 		<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
 		<script src="http://d3js.org/d3.v3.min.js"></script>
@@ -71,14 +71,13 @@
 			    g_cnty.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
 			    feature.attr("d", path);
 			  }
-			
-			  // Use Leaflet to implement a D3 geometric transformation.
-			  function projectPoint(x, y) {
-			    var point = map.latLngToLayerPoint(new L.LatLng(y, x));
-			    this.stream.point(point.x, point.y);
-			  }
 			});
 			
+			// Use Leaflet to implement a D3 geometric transformation.
+			function projectPoint(x, y) {
+			  var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+			  this.stream.point(point.x, point.y);
+			}
 			/*
 			//read county centroids
 			var cntpts = [];
@@ -95,37 +94,41 @@
 			
 			//draw flows
 			d3.json("{{ STATIC_URL }}visflow/GeoJSON/sig_flowtable_above65_allm.json", function(collection) {
-			  //var projection = d3.geo.mercator({point: projectPoint});
 			  var transform = d3.geo.transform({point: projectPoint}),
 			      path = d3.geo.path().projection(transform);
-			//console.log(path)
-			// build the arrow.
-			svg_flow.append("svg:defs").selectAll("marker")
-			    .data(["end-arrow"])
-			  .enter().append("svg:marker")
-			    .attr("id", String)
-			    .attr("viewBox", "0 -5 10 10")
-			    .attr("refX", 5)
-			    .attr("refY", 0)
-			    .attr("markerWidth", 6)
-			    .attr("markerHeight", 6)
-			    .attr("orient", "auto")
-			    .attr("stroke", "red")
-			    .attr("fill", "red")
-			  .append("svg:path")
-			    .attr("d", "M0,-5L10,0L0,5");
+			  // build the arrow.
+			  var opacity_value = 0.5;
+			  svg_flow.append("svg:defs").selectAll("marker")
+			      .data(["end-arrow"])
+			    .enter().append("svg:marker")
+			      .attr("id", String)
+			      .attr("viewBox", "0 0 10 10")
+			      .attr("refX", 10)
+			      .attr("refY", 5)
+			      .attr("markerWidth", 6)
+			      .attr("markerHeight", 6)
+			      .attr("orient", "auto")
+			      .attr("stroke", "red")
+			      .attr("fill", "red")
+			      .attr("stroke-linejoin", "round")
+			      .attr("stroke-opacity", opacity_value)
+			      .attr("fill-opacity", opacity_value)
+			    .append("svg:path")
+			      .attr("d", "M0,0L10,5L2,5.5");
 			    
 			  var feature = g_flow.selectAll("path")
 			      .data(collection.features)
 			    .enter().append("path")
 			    .attr("stroke", "red")
+			    .attr("stroke-linejoin", "round")
+			    .attr("stroke-opacity", opacity_value)
 			    .attr("stroke-width", function(d){return Math.log(d.properties.volume)/Math.LN10})
-			    .attr("fill-opacity", ".6")
 			    .attr("marker-end", "url(#end-arrow)");
 			    
+			  console.log(collection.features);
 			  map.on("viewreset", reset);
 			  reset();
-
+				
 			  // Reposition the SVG to cover the features.
 			  function reset() {
 			    var bounds = path.bounds(collection),
@@ -140,13 +143,6 @@
 			    g_flow.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
 			    feature.attr("d", path);
 			  }
-			
-			  // Use Leaflet to implement a D3 geometric transformation.
-			  function projectPoint(x, y) {
-			    var point = map.latLngToLayerPoint(new L.LatLng(y, x));
-			    this.stream.point(point.x, point.y);
-			  }
-			  
 			});
 		</script>
 	</body>
