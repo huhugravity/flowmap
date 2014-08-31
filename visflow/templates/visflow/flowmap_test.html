@@ -19,14 +19,28 @@
 	     <title> My FlowMap </title>
 	</head>
 	<body>
-		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0; top:0; left:0" />
+		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0; top:0; left:0">
+			<div style="font-family: Lucida Grande,Helvetica,Arial,Verdana,sans-serif; font-size: 14px; 
+				position: absolute; left: 30px; bottom: 20px; z-index: 100; padding: 5px; 
+				border: 2px solid #666666; border-radius: 5px; background-color: white;">
+	
+	        <div id="legend">
+	            <div style="padding: 6px; text-align: center;">
+	                Flow Age65-<br/> by 
+	            </div>
+	        </div>
+        </div>
 		
 		<script src="{{ STATIC_URL }}visflow/JS/leaflet.js"></script>
 		<script src="{{ STATIC_URL }}visflow/JS/d3.v3.min.js"></script>
 		<script src="{{ STATIC_URL }}visflow/JS/jquery-1.11.0.min.js"></script>
 		<script src="{{ STATIC_URL }}visflow/JS/geostats.min.js"></script>
 		<script>
-			var map = L.map('map').setView([37.8, -96.9], 5);
+			var map;
+			var map_option = "stamen_blackandwhite" ; // "stamen_blackandwhite"
+			
+			if (map_option == "openstreetmap"){
+				map = L.map('map').setView([37.8, -96.9], 5);
 				L.tileLayer('https://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png', {
 				maxZoom: 18,
 				attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
@@ -34,6 +48,20 @@
 					'Imagery ? <a href="http://mapbox.com">Mapbox</a>',
 				id: 'examples.map-i86knfo3'
 				}).addTo(map);
+			}
+			else if(map_option == "stamen_blackandwhite"){
+			 	map = new L.Map('map', {
+			    	center: new L.LatLng(37.8, -96.9),
+			    	zoom: 5,
+			    	layers: new L.TileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png'), 
+				});
+			}
+			else{	// google maps
+				//src="http://maps.google.com/maps/api/js?v=3.2&sensor=false";
+			 	map = L.map('map').setView([37.8, -96.9], 5);
+			 	var googleLayer = new L.Google('ROADMAP');
+			 	map.addLayer(googleLayer);
+			}
 
 			var svg_cnty = d3.select(map.getPanes().overlayPane).append("svg"),
 				svg_flow = d3.select(map.getPanes().overlayPane).append("svg"),
@@ -84,8 +112,26 @@
 			      path = d3.geo.path().projection(transform);
 			  
 			  var opacity_value = 0.6;
-			  var destcolor = "#FF0000", origincolor = "#FFFF99";
+			  var destcolor = "#FF0000", origincolor = "#FFCC00";
 			  
+			  // get classifications
+			  var volumes = [];
+			  for (i in d3.range(collection.features.length)){volumes.push(collection.features[i].properties.volume);}
+			  
+			  var quantile = d3.scale.quantile().domain(volumes).range(d3.range(5));
+			  //var quantize = d3.scale.quantize().domain(d3.extent(collection.features.slice(), function(d) {return d.properties.volume; })).range(d3.range(5));
+			  
+			  // draw legend
+			  var html = "", inverted, labeltext, legend = document.getElementById("legend");
+			  for (r in quantile.range()){
+			  		inverted = quantile.invertExtent(parseInt(r));
+			  		labeltext = parseInt(inverted[0]) + " - " + parseInt(inverted[1]);
+					html += '<div>' + '<svg width="24" height="24">' +
+                            '<path d="M 2 21 l 0 0.5 l 20 0.5 l 20 0" stroke=url(#lg_toleft_' + r + ') stroke-width=' + (parseInt(r) * 0.5 + 1.5) + ' />' +
+                            '</svg>' + '<span>        ' + labeltext + '</span>' + '</div>';
+			  }
+			  legend.innerHTML = legend.innerHTML + html;
+
 			  // build the arrow
 			  svg_flow.append("svg:defs").selectAll("marker")
 			      .data(["end-arrow"])
@@ -104,50 +150,39 @@
 			      .attr("fill-opacity", opacity_value)
 			    .append("svg:path")
 			      .attr("d", "M0,0L10,5L2,5.5");
-			      
-			  function quad(points) {
-				  return d3.range(points.length - 1).map(function(i) {
-				    var a = [points[i - 1], points[i], points[i + 1], points[i + 2]];
-				    a.t = (points[i].t + points[i + 1].t) / 2;
-				    return a;
-				  });
-				}
 			  
 			  // draw linear gradient
-			  var mylinearGradient = [{"id": "lg_toleft", "x1": "0%", "x2": "100%", "y1":"0%", "y2":"0%", 
-			  								"stop": [{"offset": "10%", "color": origincolor}, {"offset": "90%", "color": destcolor}]},
-			  						  {"id": "lg_toright", "x1": "10%", "x2": "100%", "y1":"0%", "y2":"0%",
-			  						  		"stop": [{"offset": "10%", "color": destcolor}, {"offset": "90%", "color": origincolor}]},
-			  						  {"id": "lg_toup", "x1": "0%", "x2": "0%", "y1":"0%", "y2":"100%",
-			  						  		"stop": [{"offset": "10%", "color": destcolor}, {"offset": "90%", "color": origincolor}]},
-			  						  {"id": "lg_tobottom", "x1": "0%", "x2": "0%", "y1":"0%", "y2":"100%",
-			  						  		"stop": [{"offset": "10%", "color": origincolor}, {"offset": "90%", "color": destcolor}]}]
-			  svg_flow.append("svg:defs").selectAll("linearGradient")
-				      .data(mylinearGradient)
-			    	.enter().append("svg:linearGradient")
-			    	.attr("id", function(d) { return d.id; })
-			    	.attr("x1", function(d) { return d.x1; })
-			    	.attr("x2", function(d) { return d.x2; })
-			    	.attr("y1", function(d) { return d.y1; })
-			    	.attr("y2", function(d) { return d.y2; })
-				    .selectAll("stop")
-				      .data(function(d) { return d.stop; })
-				      .enter().append("stop")
-     				  .attr("offset", function(d) { return d.offset; })
-      				  .attr("stop-color", function(d) { return d.color; });
-      				  
-      		  svg_flow.append("svg:defs").selectAll("linearGradient")
-				      .data(["mylinearGradienttoright"])
-			    	.enter().append("svg:linearGradient")
-			    	.attr("id", String)
-				    .selectAll("stop")
-				      .data([
-				        {offset: "5%", color:"#FF6"},
-				        {offset:"95%", color:destcolor}
-				      ])
-				      .enter().append("stop")
-     				  .attr("offset", function(d) { return d.offset; })
-      				  .attr("stop-color", function(d) { return d.color; });
+			  destcolor = ["#0099FF", "#CC9966", "#CC6600", "#FF0066", "#FF0000"], origincolor = destcolor;//["#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000"];
+			  var destopacity = 0.6, originopacity = 0.4;
+			  var mylinearGradient;
+			  for (i in d3.range(5)){
+				  mylinearGradient = [{"id": "lg_toleft_" + i, "x1": "0%", "x2": "100%", "y1":"0%", "y2":"0%", 
+				  								"stop": [{"offset": "10%", "color": origincolor[i], "stopopacity": originopacity}, 
+				  										{"offset": "90%", "color": destcolor[i], "stopopacity": destopacity}]},
+				  					  {"id": "lg_toright_" + i, "x1": "10%", "x2": "100%", "y1":"0%", "y2":"0%",
+				  						  		"stop": [{"offset": "10%", "color": destcolor[i], "stopopacity": destopacity}, 
+				  						  				{"offset": "90%", "color": origincolor[i], "stopopacity": originopacity}]},
+				  					  {"id": "lg_toup_" + i, "x1": "0%", "x2": "0%", "y1":"0%", "y2":"100%",
+				  						  		"stop": [{"offset": "10%", "color": destcolor[i], "stopopacity": destopacity}, 
+				  						  				{"offset": "90%", "color": origincolor[i], "stopopacity": originopacity}]},
+				  					  {"id": "lg_tobottom_" + i, "x1": "0%", "x2": "0%", "y1":"0%", "y2":"100%",
+				  						  		"stop": [{"offset": "10%", "color": origincolor[i], "stopopacity": originopacity}, 
+				  						  				{"offset": "90%", "color": destcolor[i], "stopopacity": destopacity}]}]
+				  svg_flow.append("svg:defs").selectAll("linearGradient")
+					      .data(mylinearGradient)
+				    	.enter().append("svg:linearGradient")
+				    	.attr("id", function(d) { return d.id; })
+				    	.attr("x1", function(d) { return d.x1; })
+				    	.attr("x2", function(d) { return d.x2; })
+				    	.attr("y1", function(d) { return d.y1; })
+				    	.attr("y2", function(d) { return d.y2; })
+					    .selectAll("stop")
+					      .data(function(d) { return d.stop; })
+					      .enter().append("stop")
+	     				  .attr("offset", function(d) { return d.offset; })
+	      				  .attr("stop-color", function(d) { return d.color; })
+	      				  .attr("stop-opacity", function(d) { return d.stopopacity; });
+      		}
 			  	
 			  var feature = g_flow.selectAll("path")
 			      .data(collection.features)
@@ -155,15 +190,21 @@
 			    .attr("stroke", function(d){
 			    			var distx = d.geometry.coordinates[0][0] - d.geometry.coordinates[1][0],
 			    				disty = d.geometry.coordinates[0][1] - d.geometry.coordinates[1][1];
+			    			//console.log(quantile(d.properties.volume));
+			    			var return_url;
 			    			if (Math.abs(distx) > Math.abs(disty)) 
-			    				{if (distx > 0) return "url(#lg_toright)"; else return "url(#lg_toleft)";}
+			    				{if (distx > 0) return_url = "url(#lg_toright"; else return_url = "url(#lg_toleft";}
 			    			else
-			    				{if (disty > 0) return "url(#lg_tobottom)"; else return "url(#lg_toup)";}
+			    				{if (disty > 0) return_url = "url(#lg_tobottom"; else return_url = "url(#lg_toup";}
+			    			return return_url + '_' + quantile(d.properties.volume) + ")";
 			    			})
 			    .attr("stroke-linejoin", "round")
 			    .attr("fill", "none")
 			    .attr("stroke-opacity", opacity_value)
-			    .attr("stroke-width", function(d){return Math.log(d.properties.volume)/Math.LN10});
+			    .attr("stroke-width", function(d){
+			    						return (quantile(d.properties.volume) * 0.5 + 1.5);
+			    						//return Math.log(d.properties.volume)/Math.LN10
+			    					});
 			    //.attr("marker-end", "url(#end-arrow)");
 			  
 			  //var l = feature[0][0].node().getTotalLength();
@@ -184,8 +225,8 @@
 			    						var pt1 = projectionpoint2(d.geometry.coordinates[1][0], d.geometry.coordinates[1][1]);
 			    						var distx = pt1.x-pt0.x, disty = pt1.y-pt0.y;
 										var ptctl = determinerelativecontrolpt(pt0.x, pt0.y, pt1.x, pt1.y, 1/6, 1/8),
-											ptct2 = determinerelativecontrolpt(pt0.x, pt0.y, pt1.x, pt1.y, 1/3, 1/8),
-											ptct3 = determinerelativecontrolpt(pt1.x, pt1.y, pt0.x, pt0.y, 1/20, 1/100);
+											ptct2 = determinerelativecontrolpt(pt0.x, pt0.y, pt1.x, pt1.y, 1/3, 1/8);
+										var ptct3 = determinerelativecontrolpt(pt1.x, pt1.y, pt0.x, pt0.y, 1/20, -1/50);
 										return "M" + pt0.x + "," + pt0.y + " c" + ptctl.x + "," + ptctl.y + " " + ptct2.x + "," + ptct2.y
 											+ " " + distx + "," + disty + " l" + ptct3.x + "," + ptct3.y;
 			    						}
