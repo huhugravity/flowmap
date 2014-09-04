@@ -22,3 +22,15 @@ def visflowmap(request):
 def visflowmaptest(request):
     return render(request, 'visflow/flowmap_test.html', {
                                                     'messages': messages.get_messages(request)})
+    
+def visflowmapwithoptions(request):
+    ageoptions = [{'value':'allage', 'display': 'all age groups - Census2000'}, 
+                                {'value':'above65', 'display': 'age above 65 - Census2000'},
+                                {'value':'allage_1m_acs2006_2010', 'display': 'all age groups - ACS2006-2010'}, 
+                                {'value':'above65_1m_acs2006_2010', 'display': 'age above 65 - ACS2006-2010'}]
+    if request.POST:
+        mapdataoption = request.POST['mapdataoption']
+    else:
+        mapdataoption = 'above65'
+    return render(request, 'visflow/flowmap_options.html', {'mapdataoption': mapdataoption, 'ageoptions': ageoptions,
+                                                    'messages': messages.get_messages(request)})

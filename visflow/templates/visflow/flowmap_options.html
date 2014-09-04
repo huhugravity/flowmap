@@ -20,11 +20,26 @@
 	</head>
 	<body>
 		<div id="map" style="width: 100%; height: 100%; position: fixed; padding:0; margin:0; top:0; left:0"></div>
-			<div style="font-family: Lucida Grande,Helvetica,Arial,Verdana,sans-serif; font-size: 14px; 
+
+		<div style="font-family: Lucida Grande,Helvetica,Arial,Verdana,sans-serif; font-size: 18px; position: absolute; right: 30px; top: 10px; z-index: 100; padding: 5px;">
+	        <div id="option" style="padding: 6px; text-align: center;">
+				<form method="POST" enctype="multipart/form-data">{% csrf_token %}<tr>
+					<td><select name = 'mapdataoption' onchange="this.form.submit()">
+						{% for o in ageoptions %}
+							<option  value="{{o.value}}" 
+							{% if o.value == mapdataoption %} selected {% endif %}
+							>{{o.display}}</option>
+						{% endfor %}
+					</select></td>
+				</form>
+		    </div>
+		</div>
+		
+		<div style="font-family: Lucida Grande,Helvetica,Arial,Verdana,sans-serif; font-size: 14px; 
 				position: absolute; left: 30px; bottom: 20px; z-index: 100; padding: 5px; 
 				border: 2px solid #666666; border-radius: 5px; background-color: white;">
-	        <div id="legend"/>
-        </div>
+		    <div id="legend"/>
+	    </div>
 		
 		<script src="{{ STATIC_URL }}visflow/JS/leaflet.js"></script>
 		<script src="{{ STATIC_URL }}visflow/JS/d3.v3.min.js"></script>
@@ -32,10 +47,10 @@
 		<script src="{{ STATIC_URL }}visflow/JS/simple_statistics.mini.js"></script>
 		<script>
 			var map_option = "stamen_blackandwhite" ; // "stamen_blackandwhite"
-			var ageoption = "above65_1m_acs2006_2010"; // "allage"; "above65"; "allage_acs2009"; 
+			var ageoption = "{{mapdataoption}}";//"allage_1m_acs2006_2010"; // "allage"; "above65"; "allage_acs2009"; 
 			//allage_1m_acs2006_2010; above65_1m_acs2006_2010
 			var classification = "quantile"; // quantile, quantize, jenks)
-			var colorramp = "redgreenblue"; // redgreenblue, redyellow, redyellow2, redgreen, redgreen2, redblue, redblue2
+			var colorramp = "redblue2"; // redgreenblue, redyellow, redyellow2, redgreen, redgreen2, redblue, redblue2
 			
 			var map;
 			if (map_option == "openstreetmap"){
@@ -138,7 +153,7 @@
 			  var html = "", inverted, labeltext, legend = document.getElementById("legend");
 			  html += '<div style="padding: 6px; text-align: center;">Log(GLR)</br>' 
 			  if (ageoption == "above65") html += "(age above65 - Census2000)";
-			  else if (ageoption == "allage") html += "(all age groups - ACS2009)";
+			  else if (ageoption == "allage") html += "(all age groups - Census2000)";
 			  else if (ageoption == "allage_acs2009") html += "(all age groups - ACS2009)";
 			  else if (ageoption == "allage_1m_acs2006_2010") html += "(all age groups - ACS2006-2010)";
 			  else if (ageoption == "above65_1m_acs2006_2010") html += "(age above65 - ACS2006-2010)";
